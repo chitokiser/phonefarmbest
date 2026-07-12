@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { DeviceInfo } from '../../../../shared/deviceTypes'
 import { StreamClient } from '../../stream/StreamClient'
 import { WebCodecsCanvasPlayer } from '../../stream/WebCodecsCanvasPlayer'
-import { buildTouchEventMessage, TouchAction } from '../../stream/vendor/controlMessage'
+import { buildTouchEventMessage, TouchAction } from '../../../../shared/scrcpy/controlMessage'
 
 interface DeviceTileProps {
   device: DeviceInfo

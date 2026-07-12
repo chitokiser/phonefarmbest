@@ -1,5 +1,6 @@
 import VideoSettings from './VideoSettings'
 
+const TYPE_INJECT_TEXT = 1
 const TYPE_INJECT_TOUCH_EVENT = 2
 const TYPE_CHANGE_STREAM_PARAMETERS = 101
 
@@ -56,5 +57,16 @@ export function buildTouchEventMessage(
   view.setUint16(offset, Math.round(pressure * 0xffff))
   offset += 2
   view.setInt32(offset, action === TouchAction.Up ? 0 : AMOTION_EVENT_BUTTON_PRIMARY)
+  return buffer
+}
+
+/** Mirrors scrcpy's ControlMessageReader#parseInjectTextEvent (type, uint16 BE byte length, utf8 bytes). */
+export function buildInjectTextMessage(text: string): Uint8Array {
+  const textBytes = new TextEncoder().encode(text)
+  const buffer = new Uint8Array(3 + textBytes.length)
+  const view = new DataView(buffer.buffer)
+  buffer[0] = TYPE_INJECT_TEXT
+  view.setUint16(1, textBytes.length)
+  buffer.set(textBytes, 3)
   return buffer
 }

@@ -24,6 +24,10 @@ function createWindow(): void {
     mainWindow?.show()
   })
 
+  mainWindow.webContents.on('console-message', (_event, _level, message) => {
+    console.log(`[renderer console] ${message}`)
+  })
+
   mainWindow.on('closed', () => {
     mainWindow = null
   })

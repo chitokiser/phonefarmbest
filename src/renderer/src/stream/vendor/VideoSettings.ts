@@ -65,4 +65,41 @@ export default class VideoSettings {
       offset
     )
   }
+
+  /** Mirrors VideoSettings.fromBuffer's layout (BASE_BUFFER_LENGTH = 35 bytes, no codec options/encoder name). */
+  public toBuffer(): Uint8Array {
+    const buffer = new Uint8Array(35)
+    const view = new DataView(buffer.buffer)
+    const { width = 0, height = 0 } = this.bounds ?? {}
+    const { left = 0, top = 0, right = 0, bottom = 0 } = this.crop ?? {}
+    let offset = 0
+    view.setInt32(offset, this.bitrate)
+    offset += 4
+    view.setInt32(offset, this.maxFps)
+    offset += 4
+    view.setInt8(offset, this.iFrameInterval)
+    offset += 1
+    view.setInt16(offset, width)
+    offset += 2
+    view.setInt16(offset, height)
+    offset += 2
+    view.setInt16(offset, left)
+    offset += 2
+    view.setInt16(offset, top)
+    offset += 2
+    view.setInt16(offset, right)
+    offset += 2
+    view.setInt16(offset, bottom)
+    offset += 2
+    view.setInt8(offset, this.sendFrameMeta ? 1 : 0)
+    offset += 1
+    view.setInt8(offset, this.lockedVideoOrientation)
+    offset += 1
+    view.setInt32(offset, this.displayId)
+    offset += 4
+    view.setInt32(offset, 0) // codecOptionsLength
+    offset += 4
+    view.setInt32(offset, 0) // encoderNameLength
+    return buffer
+  }
 }

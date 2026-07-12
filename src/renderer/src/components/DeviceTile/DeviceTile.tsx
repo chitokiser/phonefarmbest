@@ -15,13 +15,21 @@ export function DeviceTile({ device, selected, onClick, onDoubleClick }: DeviceT
 
   useEffect(() => {
     if (device.status !== 'device') return undefined
-    if (!WebCodecsCanvasPlayer.isSupported()) return undefined
+    if (!WebCodecsCanvasPlayer.isSupported()) {
+      console.warn(`[DeviceTile] ${device.serial}: WebCodecs VideoDecoder not supported in this renderer`)
+      return undefined
+    }
     const canvas = canvasRef.current
     if (!canvas) return undefined
 
+    let videoFrameCount = 0
     const player = new WebCodecsCanvasPlayer(canvas)
     const client = new StreamClient(device.serial)
-    client.on('video', (data) => player.decode(data))
+    client.on('video', (data) => {
+      videoFrameCount++
+      if (videoFrameCount <= 3) console.log(`[DeviceTile] ${device.serial}: video chunk #${videoFrameCount}, ${data.byteLength} bytes`)
+      player.decode(data)
+    })
     client.connect()
 
     return () => {

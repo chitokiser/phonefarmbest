@@ -1,3 +1,5 @@
+import { existsSync } from 'fs'
+import type { Duplex } from 'stream'
 import { Adb } from '@devicefarmer/adbkit'
 import { adbClient } from '../adbClient'
 import { buildRunCommand, DEVICE_JAR_PATH, LOCAL_JAR_PATH, SERVER_PROCESS_NAME } from './constants'
@@ -25,11 +27,16 @@ async function getServerPid(serial: string): Promise<number | undefined> {
 }
 
 async function pushServerJar(serial: string): Promise<void> {
+  if (!existsSync(LOCAL_JAR_PATH)) {
+    throw new Error(`Vendored scrcpy-server.jar not found at ${LOCAL_JAR_PATH}`)
+  }
+  console.log(`[${serial}] pushing ${LOCAL_JAR_PATH} -> ${DEVICE_JAR_PATH}`)
   const transfer = await adbClient.getDevice(serial).push(LOCAL_JAR_PATH, DEVICE_JAR_PATH)
   await new Promise<void>((resolve, reject) => {
     transfer.on('end', resolve)
     transfer.on('error', reject)
   })
+  console.log(`[${serial}] push complete`)
 }
 
 /**
@@ -38,20 +45,29 @@ async function pushServerJar(serial: string): Promise<void> {
  */
 export async function ensureScrcpyServerRunning(serial: string): Promise<void> {
   const existingPid = await getServerPid(serial)
-  if (existingPid) return
+  if (existingPid) {
+    console.log(`[${serial}] scrcpy-server already running (pid ${existingPid})`)
+    return
+  }
 
   await pushServerJar(serial)
 
   const command = buildRunCommand()
+  console.log(`[${serial}] launching scrcpy-server: ${command}`)
   adbClient
     .getDevice(serial)
     .shell(command)
+    .then((stream: Duplex) => Adb.util.readAll(stream))
+    .then((output: Buffer) => console.log(`[${serial}] scrcpy-server process exited, output:`, output.toString('utf8')))
     .catch((error: Error) => console.error(`[${serial}] scrcpy-server exec failed:`, error))
 
   for (let attempt = 0; attempt < MAX_PID_WAIT_ATTEMPTS; attempt++) {
     await sleep(PID_WAIT_INTERVAL_MS)
     const pid = await getServerPid(serial)
-    if (pid) return
+    if (pid) {
+      console.log(`[${serial}] scrcpy-server started (pid ${pid})`)
+      return
+    }
   }
   throw new Error(`[${serial}] scrcpy-server did not start in time`)
 }

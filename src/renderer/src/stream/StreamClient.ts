@@ -1,13 +1,32 @@
 import { DisplayInfo } from './vendor/DisplayInfo'
 import ScreenInfo from './vendor/ScreenInfo'
 import VideoSettings from './vendor/VideoSettings'
+import Size from './vendor/Size'
 import DeviceMessage, { MAGIC_BYTES_MESSAGE } from './vendor/DeviceMessage'
 import { MiniEmitter } from './vendor/MiniEmitter'
+import { buildSetVideoSettingsMessage } from './vendor/controlMessage'
 import { stringToUtf8ByteArray, utf8ByteArrayToString, filterTrailingZeroes } from './vendor/textCodec'
 import { STREAM_RELAY_PORT } from '../../../shared/streamConfig'
 
 const DEVICE_NAME_FIELD_LENGTH = 64
 const MAGIC_BYTES_INITIAL = stringToUtf8ByteArray('scrcpy_initial')
+
+/**
+ * The server only starts encoding once a client requests these (see
+ * CommandControlMessage.createSetVideoSettingsCommand in ws-scrcpy) — sending nothing
+ * leaves the connection open but silent.
+ */
+const DEFAULT_VIDEO_SETTINGS = new VideoSettings(
+  4_000_000, // bitrate
+  30, // maxFps
+  5, // iFrameInterval
+  new Size(720, 720), // bounds
+  null, // crop
+  false, // sendFrameMeta
+  -1, // lockedVideoOrientation
+  0, // displayId
+  35
+)
 
 export interface DeviceStreamInfo {
   deviceName: string
@@ -37,16 +56,26 @@ function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
 export class StreamClient extends MiniEmitter<StreamClientEvents> {
   private ws: WebSocket | null = null
   private deviceInfo: DeviceStreamInfo | null = null
+  private videoSettingsSent = false
 
   constructor(private readonly serial: string) {
     super()
   }
 
   connect(): void {
-    const ws = new WebSocket(`ws://127.0.0.1:${STREAM_RELAY_PORT}/?serial=${encodeURIComponent(this.serial)}`)
+    this.videoSettingsSent = false
+    const url = `ws://127.0.0.1:${STREAM_RELAY_PORT}/?serial=${encodeURIComponent(this.serial)}`
+    const ws = new WebSocket(url)
     ws.binaryType = 'arraybuffer'
-    ws.onopen = () => this.emit('connected', undefined)
-    ws.onclose = () => this.emit('disconnected', undefined)
+    ws.onopen = () => {
+      console.log(`[StreamClient] connected: ${url}`)
+      this.emit('connected', undefined)
+    }
+    ws.onclose = (event) => {
+      console.log(`[StreamClient] disconnected: code=${event.code} reason=${event.reason}`)
+      this.emit('disconnected', undefined)
+    }
+    ws.onerror = () => console.error(`[StreamClient] websocket error for ${this.serial}`)
     ws.onmessage = (event) => this.handleMessage(event.data as ArrayBuffer)
     this.ws = ws
   }
@@ -127,5 +156,10 @@ export class StreamClient extends MiniEmitter<StreamClientEvents> {
 
     this.deviceInfo = { deviceName, displayInfo, screenInfo, videoSettings }
     this.emit('deviceInfo', this.deviceInfo)
+
+    if (!this.videoSettingsSent && this.ws?.readyState === WebSocket.OPEN) {
+      this.videoSettingsSent = true
+      this.ws.send(buildSetVideoSettingsMessage(DEFAULT_VIDEO_SETTINGS))
+    }
   }
 }

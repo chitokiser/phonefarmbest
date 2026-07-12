@@ -24,6 +24,7 @@ export async function ensureForward(serial: string): Promise<number> {
   }
 
   const port = await portfinder.getPortPromise()
+  console.log(`[${serial}] adb forward tcp:${port} -> ${remote}`)
   await device.forward(`tcp:${port}`, remote)
   forwardedPorts.set(serial, port)
   return port

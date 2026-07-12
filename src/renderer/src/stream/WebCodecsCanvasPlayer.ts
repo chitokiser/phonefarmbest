@@ -34,13 +34,17 @@ export class WebCodecsCanvasPlayer {
     this.onResize = callback
   }
 
+  private frameCount = 0
+
   private createDecoder(): VideoDecoder {
     return new VideoDecoder({
       output: (frame) => {
+        this.frameCount++
+        if (this.frameCount <= 3) console.log(`[WebCodecsCanvasPlayer] frame #${this.frameCount} decoded, drawing`)
         this.context.drawImage(frame, 0, 0, this.canvas.width, this.canvas.height)
         frame.close()
       },
-      error: (error) => console.error('[WebCodecsCanvasPlayer]', error)
+      error: (error) => console.error('[WebCodecsCanvasPlayer] decoder error:', error)
     })
   }
 
@@ -71,6 +75,7 @@ export class WebCodecsCanvasPlayer {
         (2 - sps.frame_mbs_only_flag) * (sps.pic_height_in_map_units_minus1 + 1) * 16 -
         (sps.frame_mbs_only_flag ? 2 : 4) * (sps.frame_crop_top_offset + sps.frame_crop_bottom_offset)
 
+      console.log(`[WebCodecsCanvasPlayer] SPS parsed: ${width}x${height}, codec=${codec}`)
       this.canvas.width = width
       this.canvas.height = height
       this.onResize?.(width, height)
@@ -98,13 +103,19 @@ export class WebCodecsCanvasPlayer {
       this.buffer = undefined
       this.bufferedSPS = false
       this.bufferedPPS = false
-      this.decoder.decode(
-        new EncodedVideoChunk({
-          type: 'key',
-          timestamp: 0,
-          data: merged
-        })
-      )
+      try {
+        this.decoder.decode(
+          new EncodedVideoChunk({
+            type: 'key',
+            timestamp: 0,
+            data: merged
+          })
+        )
+      } catch (error) {
+        console.error('[WebCodecsCanvasPlayer] decode() threw:', error)
+      }
+    } else if (this.frameCount === 0) {
+      console.log(`[WebCodecsCanvasPlayer] not decoding yet: decoderState=${this.decoder.state} hadIDR=${this.hadIDR}`)
     }
   }
 

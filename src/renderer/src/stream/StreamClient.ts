@@ -85,6 +85,10 @@ export class StreamClient extends MiniEmitter<StreamClientEvents> {
     this.ws = null
   }
 
+  sendControlMessage(bytes: Uint8Array): void {
+    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(bytes)
+  }
+
   getDeviceInfo(): DeviceStreamInfo | null {
     return this.deviceInfo
   }

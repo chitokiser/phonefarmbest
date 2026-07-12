@@ -40,6 +40,25 @@ async function pushServerJar(serial: string): Promise<void> {
 }
 
 /**
+ * Wakes the device's screen and pins it awake for as long as it's on USB power.
+ * scrcpy only ever captures whatever the display is currently showing, so a
+ * dozing/locked screen streams as solid black. A bare KEYCODE_WAKEUP isn't
+ * enough on its own: without disabling the idle timeout, some devices (seen on
+ * a Galaxy S9) slide right back into doze within ~10s even with a 10-minute
+ * screen-off timeout configured. `svc power stayon usb` is the same call
+ * scrcpy's own `--stay-awake` flag makes; KEYCODE_WAKEUP just turns the screen
+ * on immediately instead of waiting for the next USB (re)plug event.
+ */
+export async function wakeDevice(serial: string): Promise<void> {
+  await shellText(serial, 'svc power stayon usb').catch((error) =>
+    console.warn(`[${serial}] failed to set stay-awake:`, error)
+  )
+  await shellText(serial, 'input keyevent KEYCODE_WAKEUP').catch((error) =>
+    console.warn(`[${serial}] failed to wake device:`, error)
+  )
+}
+
+/**
  * Ensures the (vendored, ws-scrcpy patched) scrcpy-server is running on the device
  * in "web" mode, listening on DEVICE_SERVER_PORT. Idempotent: if already running, returns immediately.
  */

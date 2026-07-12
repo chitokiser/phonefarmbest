@@ -1,7 +1,7 @@
 import { WebSocket, WebSocketServer } from 'ws'
 import type { RawData } from 'ws'
 import { STREAM_RELAY_PORT } from '../../shared/streamConfig'
-import { ensureScrcpyServerRunning } from './scrcpyServer'
+import { ensureScrcpyServerRunning, wakeDevice } from './scrcpyServer'
 import { ensureForward } from './adbForward'
 
 const MAX_DEVICE_CONNECT_ATTEMPTS = 8
@@ -42,6 +42,7 @@ export class StreamRelayServer {
     }
 
     try {
+      await wakeDevice(serial)
       console.log(`[StreamRelayServer] [${serial}] ensuring scrcpy-server is running...`)
       await ensureScrcpyServerRunning(serial)
       console.log(`[StreamRelayServer] [${serial}] scrcpy-server running, setting up adb forward...`)

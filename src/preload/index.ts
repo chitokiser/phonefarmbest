@@ -14,6 +14,9 @@ const api = {
   postToFacebook(serial: string): Promise<{ title: string } | null> {
     return ipcRenderer.invoke(IPC_CHANNELS.FACEBOOK_AUTO_POST, serial)
   },
+  postToBlogger(serial: string): Promise<{ title: string } | null> {
+    return ipcRenderer.invoke(IPC_CHANNELS.BLOGGER_AUTO_POST, serial)
+  },
   kakaoAutoReply(serial: string): Promise<{ incoming: string; reply: string }> {
     return ipcRenderer.invoke(IPC_CHANNELS.KAKAO_AUTO_REPLY, serial)
   }

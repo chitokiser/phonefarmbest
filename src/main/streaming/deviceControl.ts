@@ -149,6 +149,26 @@ export async function tapElement(serial: string, pattern: RegExp, description: s
 }
 
 /**
+ * Polls findElements for `pattern` instead of checking once - a cold app launch racing
+ * against a transitioning screen was confirmed flaky on a real device (a single check right
+ * after a fixed delay sometimes caught a still-transitioning screen and found nothing, landing
+ * somewhere unexpected instead of the intended target).
+ */
+export async function waitForElements(
+  serial: string,
+  pattern: RegExp,
+  attempts: number,
+  intervalMs: number
+): Promise<ElementBounds[]> {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const found = await findElements(serial, pattern)
+    if (found.length > 0) return found
+    await sleep(intervalMs)
+  }
+  return []
+}
+
+/**
  * Sends Unicode text to whatever field is currently focused, via the vendored ADB
  * Keyboard IME (see resources/vendor/adb-keyboard/NOTICE.md for why this exists:
  * both scrcpy's TYPE_INJECT_TEXT and `adb shell input text` go through KeyEvent

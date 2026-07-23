@@ -17,6 +17,7 @@ export function DeviceTile({ device, selected, onClick, onDoubleClick }: DeviceT
   const [unicodeInput, setUnicodeInput] = useState('')
   const [sendingUnicode, setSendingUnicode] = useState(false)
   const [facebookPostStatus, setFacebookPostStatus] = useState<'idle' | 'posting' | 'no-new-post'>('idle')
+  const [bloggerPostStatus, setBloggerPostStatus] = useState<'idle' | 'posting' | 'no-new-post'>('idle')
   const [kakaoReplyStatus, setKakaoReplyStatus] = useState<'idle' | 'replying' | 'sent' | 'failed'>('idle')
 
   useEffect(() => {
@@ -152,6 +153,21 @@ export function DeviceTile({ device, selected, onClick, onDoubleClick }: DeviceT
     }
   }
 
+  // Posts the newest not-yet-posted webzine article to this device's Blogger account (main
+  // process picks the article and does the on-device tapping - see bloggerAutoPost.ts).
+  // Separate dedup pool from Facebook - the same article can legitimately go to both.
+  const postLatestToBlogger = async (): Promise<void> => {
+    if (bloggerPostStatus === 'posting') return
+    setBloggerPostStatus('posting')
+    try {
+      const result = await window.api.postToBlogger(device.serial)
+      setBloggerPostStatus(result ? 'idle' : 'no-new-post')
+    } catch (error) {
+      console.error(`[DeviceTile] ${device.serial}: failed to post to Blogger:`, error)
+      setBloggerPostStatus('idle')
+    }
+  }
+
   // Reads the last received message in whatever KakaoTalk chat room is open on this device,
   // drafts a reply with Gemini, and sends it immediately - no review step (see
   // autoReplyToOpenKakaoChat). Requires the target chat room already open on the device.
@@ -195,6 +211,23 @@ export function DeviceTile({ device, selected, onClick, onDoubleClick }: DeviceT
             : facebookPostStatus === 'no-new-post'
               ? '새 글 없음'
               : 'FB 자동 게시'}
+        </button>
+      ) : null}
+      {device.status === 'device' ? (
+        <button
+          type="button"
+          className="device-tile-blogger-post-button"
+          disabled={bloggerPostStatus === 'posting'}
+          onClick={(event) => {
+            event.stopPropagation()
+            void postLatestToBlogger()
+          }}
+        >
+          {bloggerPostStatus === 'posting'
+            ? '게시 중...'
+            : bloggerPostStatus === 'no-new-post'
+              ? '새 글 없음'
+              : '블로그 자동 게시'}
         </button>
       ) : null}
       {device.status === 'device' ? (

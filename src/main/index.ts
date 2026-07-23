@@ -5,6 +5,7 @@ import { DeviceManager } from './deviceManager'
 import { StreamRelayServer } from './streaming/streamRelayServer'
 import { ensureAdbKeyboardIme, typeText } from './streaming/deviceControl'
 import { postFeedItemToFacebook } from './streaming/facebookAutoPost'
+import { postFeedItemToBlogger } from './streaming/bloggerAutoPost'
 import { autoReplyToOpenKakaoChat } from './streaming/kakaoAutoReply'
 import { getRandomUnpostedItem, markPosted } from './webzineFeed'
 import { IPC_CHANNELS, type DeviceInfo } from '../shared/deviceTypes'
@@ -60,14 +61,22 @@ ipcMain.handle(IPC_CHANNELS.TYPE_UNICODE_TEXT, async (_event, serial: string, te
   await typeText(serial, text)
 })
 
-// Posts the newest webzine article this device hasn't posted yet to its signed-in Facebook
-// account. Returns null (rather than throwing) when there's nothing new, so the renderer
-// can tell "already up to date" apart from a real failure.
+// Posts a random not-yet-posted webzine article to whichever account is signed into this
+// device (Facebook or Blogger). Returns null (rather than throwing) when there's nothing
+// new, so the renderer can tell "already up to date" apart from a real failure.
 ipcMain.handle(IPC_CHANNELS.FACEBOOK_AUTO_POST, async (_event, serial: string) => {
-  const item = await getRandomUnpostedItem(serial)
+  const item = await getRandomUnpostedItem(serial, 'facebook')
   if (!item) return null
   await postFeedItemToFacebook(serial, item)
-  await markPosted(serial, item.id)
+  await markPosted(serial, 'facebook', item.id)
+  return { title: item.title }
+})
+
+ipcMain.handle(IPC_CHANNELS.BLOGGER_AUTO_POST, async (_event, serial: string) => {
+  const item = await getRandomUnpostedItem(serial, 'blogger')
+  if (!item) return null
+  await postFeedItemToBlogger(serial, item)
+  await markPosted(serial, 'blogger', item.id)
   return { title: item.title }
 })
 

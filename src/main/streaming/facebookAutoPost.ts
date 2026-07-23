@@ -15,7 +15,8 @@ import {
   shell,
   tap,
   tapElement,
-  typeText
+  typeText,
+  waitForElements
 } from './deviceControl'
 
 const FACEBOOK_PACKAGE = 'com.facebook.katana'
@@ -64,26 +65,6 @@ const SHARE_SHEET_CONFIRM_ONCE_PATTERN = /text="한 번만"/
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-/**
- * Polls findElements for `pattern` instead of checking once - a cold Facebook launch racing
- * against the share-intent resolver appearing was confirmed flaky on a real device (a single
- * check right after a fixed delay sometimes caught a still-transitioning screen and found
- * neither target, landing somewhere unexpected instead of the resolver).
- */
-async function waitForElements(
-  serial: string,
-  pattern: RegExp,
-  attempts: number,
-  intervalMs: number
-): Promise<Awaited<ReturnType<typeof findElements>>> {
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    const found = await findElements(serial, pattern)
-    if (found.length > 0) return found
-    await sleep(intervalMs)
-  }
-  return []
 }
 
 function postTextFor(item: FeedItem): string {

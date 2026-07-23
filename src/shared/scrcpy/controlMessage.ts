@@ -1,5 +1,6 @@
 import VideoSettings from './VideoSettings'
 
+const TYPE_INJECT_KEYCODE = 0
 const TYPE_INJECT_TEXT = 1
 const TYPE_INJECT_TOUCH_EVENT = 2
 const TYPE_CHANGE_STREAM_PARAMETERS = 101
@@ -10,6 +11,11 @@ export const enum TouchAction {
   Down = 0,
   Up = 1,
   Move = 2
+}
+
+export const enum KeyAction {
+  Down = 0,
+  Up = 1
 }
 
 /** The server only starts encoding once a client sends this (see CommandControlMessage in ws-scrcpy). */
@@ -57,6 +63,28 @@ export function buildTouchEventMessage(
   view.setUint16(offset, Math.round(pressure * 0xffff))
   offset += 2
   view.setInt32(offset, action === TouchAction.Up ? 0 : AMOTION_EVENT_BUTTON_PRIMARY)
+  return buffer
+}
+
+/**
+ * Mirrors scrcpy's ControlMessageReader#parseInjectKeycode (type, action, int32 keycode,
+ * int32 repeat, int32 metaState — 14 bytes total). Only reaches Android's KeyEvent
+ * synthesis, same as a hardware keyboard, so it can't represent CJK text (see
+ * deviceControl.ts's typeText for why Korean input goes through a different path).
+ */
+export function buildKeycodeMessage(action: KeyAction, keycode: number, repeat = 0, metaState = 0): Uint8Array {
+  const buffer = new Uint8Array(14)
+  const view = new DataView(buffer.buffer)
+  let offset = 0
+  view.setUint8(offset, TYPE_INJECT_KEYCODE)
+  offset += 1
+  view.setUint8(offset, action)
+  offset += 1
+  view.setInt32(offset, keycode)
+  offset += 4
+  view.setInt32(offset, repeat)
+  offset += 4
+  view.setInt32(offset, metaState)
   return buffer
 }
 

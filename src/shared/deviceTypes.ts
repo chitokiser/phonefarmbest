@@ -11,5 +11,8 @@ export interface DeviceInfo {
 }
 
 export const IPC_CHANNELS = {
-  DEVICE_LIST_CHANGED: 'device:list-changed'
+  DEVICE_LIST_CHANGED: 'device:list-changed',
+  TYPE_UNICODE_TEXT: 'device:type-unicode-text',
+  FACEBOOK_AUTO_POST: 'device:facebook-auto-post',
+  KAKAO_AUTO_REPLY: 'device:kakao-auto-reply'
 } as const

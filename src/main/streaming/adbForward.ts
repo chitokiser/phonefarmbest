@@ -17,11 +17,11 @@ export async function ensureForward(serial: string): Promise<number> {
   // The device (and adb's forward table for it) can drop out from under us on USB
   // replug/reconnect, so a cached port is only trustworthy if adb still lists it.
   const cached = forwardedPorts.get(serial)
-  if (cached && existing.some((f: Forward) => f.remote === remote && f.local === `tcp:${cached}`)) {
+  if (cached && existing.some((f: Forward) => f.serial === serial && f.remote === remote && f.local === `tcp:${cached}`)) {
     return cached
   }
 
-  const found = existing.find((f: Forward) => f.remote === remote && f.local.startsWith('tcp:'))
+  const found = existing.find((f: Forward) => f.serial === serial && f.remote === remote && f.local.startsWith('tcp:'))
   if (found) {
     const port = Number(found.local.slice('tcp:'.length))
     forwardedPorts.set(serial, port)

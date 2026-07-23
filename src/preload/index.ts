@@ -7,6 +7,15 @@ const api = {
       callback(devices)
     ipcRenderer.on(IPC_CHANNELS.DEVICE_LIST_CHANGED, listener)
     return () => ipcRenderer.removeListener(IPC_CHANNELS.DEVICE_LIST_CHANGED, listener)
+  },
+  typeUnicodeText(serial: string, text: string): Promise<void> {
+    return ipcRenderer.invoke(IPC_CHANNELS.TYPE_UNICODE_TEXT, serial, text)
+  },
+  postToFacebook(serial: string): Promise<{ title: string } | null> {
+    return ipcRenderer.invoke(IPC_CHANNELS.FACEBOOK_AUTO_POST, serial)
+  },
+  kakaoAutoReply(serial: string): Promise<{ incoming: string; reply: string }> {
+    return ipcRenderer.invoke(IPC_CHANNELS.KAKAO_AUTO_REPLY, serial)
   }
 }
 

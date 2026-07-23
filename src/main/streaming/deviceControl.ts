@@ -7,10 +7,77 @@ const ADB_KEYBOARD_IME = `${ADB_KEYBOARD_PACKAGE}/.AdbIME`
 const LOCAL_ADB_KEYBOARD_APK = join(__dirname, '../../resources/vendor/adb-keyboard/ADBKeyboard.apk')
 const DEVICE_UI_DUMP_PATH = '/data/local/tmp/mpcc_ui_dump.xml'
 
-async function shell(serial: string, command: string): Promise<string> {
+export async function shell(serial: string, command: string): Promise<string> {
   const stream = await adbClient.getDevice(serial).shell(command)
   const buffer = await Adb.util.readAll(stream)
   return buffer.toString('utf8')
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/** Pushes a local file to the device and resolves once the transfer completes. */
+export async function pushFile(serial: string, localPath: string, remotePath: string): Promise<void> {
+  const transfer = await adbClient.getDevice(serial).push(localPath, remotePath)
+  await new Promise<void>((resolve, reject) => {
+    transfer.on('end', resolve)
+    transfer.on('error', reject)
+  })
+}
+
+export async function getDeviceModel(serial: string): Promise<string> {
+  const output = await shell(serial, 'getprop ro.product.model')
+  return output.trim()
+}
+
+/** Current display resolution in pixels - matches the coordinate space `input tap` and the
+ *  bounds reported by `uiautomator dump` both use (the "Override size" from `wm size`, not
+ *  the physical panel resolution, when the two differ). */
+export async function getScreenSize(serial: string): Promise<{ width: number; height: number }> {
+  const output = await shell(serial, 'wm size')
+  const override = output.match(/Override size: (\d+)x(\d+)/)
+  const physical = output.match(/Physical size: (\d+)x(\d+)/)
+  const match = override ?? physical
+  if (!match) throw new Error(`[${serial}] could not parse "wm size" output: ${output}`)
+  return { width: Number(match[1]), height: Number(match[2]) }
+}
+
+export async function currentFocus(serial: string): Promise<string | null> {
+  const output = await shell(serial, 'dumpsys window')
+  const match = output.match(/mCurrentFocus=Window\{\S+ \S+ ([^}]+)\}/)
+  return match ? match[1].trim() : null
+}
+
+/**
+ * Throws if the foreground activity isn't what this step expects. Screen state can
+ * drift out from under a blind action sequence, so every step checks before the next
+ * one acts instead of hoping the previous tap landed correctly.
+ */
+export async function assertFocus(serial: string, expected: string, step: string): Promise<void> {
+  const focus = await currentFocus(serial)
+  console.log(`[deviceControl] [${serial}] ${step}: mCurrentFocus=${focus}`)
+  if (focus !== expected) {
+    throw new Error(`[${serial}] aborting at "${step}": expected foreground "${expected}", got "${focus}"`)
+  }
+}
+
+/**
+ * Looser version of assertFocus that only checks *which app* is foreground, not which
+ * Activity within it - some apps report a different foreground Activity class per
+ * device/account for the exact same screen (confirmed on a real device: Facebook reported
+ * `LoginActivity` as focused while fully logged in and showing the normal home feed on one
+ * phone, but `FbMainTabActivity` for the identical screen on another - same app version on
+ * both). Exact-Activity assertions are too fragile across a fleet of different devices/
+ * accounts for apps that do this; checking the package survives it while still catching
+ * real failures like the app crashing back to the launcher.
+ */
+export async function assertForegroundPackage(serial: string, packageName: string, step: string): Promise<void> {
+  const focus = await currentFocus(serial)
+  console.log(`[deviceControl] [${serial}] ${step}: mCurrentFocus=${focus}`)
+  if (!focus?.startsWith(`${packageName}/`)) {
+    throw new Error(`[${serial}] aborting at "${step}": expected foreground package "${packageName}", got "${focus}"`)
+  }
 }
 
 /**
@@ -33,6 +100,7 @@ export interface ElementBounds {
   top: number
   right: number
   bottom: number
+  enabled: boolean
 }
 
 export function centerOf(bounds: ElementBounds): { x: number; y: number } {
@@ -60,11 +128,13 @@ export async function findElements(serial: string, pattern: RegExp): Promise<Ele
     if (!pattern.test(node)) continue
     const boundsMatch = node.match(/bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/)
     if (!boundsMatch) continue
+    const enabledMatch = node.match(/enabled="(true|false)"/)
     bounds.push({
       left: Number(boundsMatch[1]),
       top: Number(boundsMatch[2]),
       right: Number(boundsMatch[3]),
-      bottom: Number(boundsMatch[4])
+      bottom: Number(boundsMatch[4]),
+      enabled: enabledMatch ? enabledMatch[1] === 'true' : true
     })
   }
   return bounds
@@ -97,21 +167,21 @@ export async function typeText(serial: string, text: string): Promise<void> {
  * device's normal keyboard changed.
  */
 export async function ensureAdbKeyboardIme(serial: string): Promise<string> {
-  const device = adbClient.getDevice(serial)
   const previousIme = (await shell(serial, 'settings get secure default_input_method')).trim()
 
   const installed = await shell(serial, `pm list packages ${ADB_KEYBOARD_PACKAGE}`)
   if (!installed.includes(ADB_KEYBOARD_PACKAGE)) {
-    const transfer = await device.push(LOCAL_ADB_KEYBOARD_APK, '/data/local/tmp/ADBKeyboard.apk')
-    await new Promise<void>((resolve, reject) => {
-      transfer.on('end', resolve)
-      transfer.on('error', reject)
-    })
+    await pushFile(serial, LOCAL_ADB_KEYBOARD_APK, '/data/local/tmp/ADBKeyboard.apk')
     await shell(serial, 'pm install -r /data/local/tmp/ADBKeyboard.apk')
   }
 
   await shell(serial, `ime enable ${ADB_KEYBOARD_IME}`)
   await shell(serial, `ime set ${ADB_KEYBOARD_IME}`)
+  // Switching the active IME isn't instantaneous - the new IME needs a moment to actually
+  // bind to the focused view's InputConnection. Broadcasting text immediately after `ime
+  // set` can silently land on nothing (confirmed empirically: back-to-back calls with no
+  // delay dropped the text about half the time).
+  await sleep(400)
   return previousIme
 }
 

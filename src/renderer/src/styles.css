@@ -146,6 +146,60 @@ body {
   max-height: 100%;
 }
 
+.device-tile-unicode-input {
+  position: absolute;
+  bottom: 24px;
+  left: 8px;
+  right: 8px;
+  width: calc(100% - 16px);
+  background: rgba(30, 31, 34, 0.85);
+  color: #fff;
+  border: 1px solid #4f5156;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  display: block;
+  z-index: 10;
+}
+
+.device-tile-facebook-post-button {
+  position: absolute;
+  bottom: 56px;
+  right: 8px;
+  background: rgba(47, 95, 168, 0.85);
+  color: #fff;
+  border: 1px solid #4f5156;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  z-index: 10;
+  cursor: pointer;
+}
+
+.device-tile-facebook-post-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.device-tile-kakao-reply-button {
+  position: absolute;
+  bottom: 84px;
+  right: 8px;
+  background: rgba(59, 29, 27, 0.85);
+  color: #fff;
+  border: 1px solid #4f5156;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  z-index: 10;
+  cursor: pointer;
+}
+
+.device-tile-kakao-reply-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .device-tile-label {
   position: absolute;
   left: 0;

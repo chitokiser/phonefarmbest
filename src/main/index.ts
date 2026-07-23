@@ -6,7 +6,7 @@ import { StreamRelayServer } from './streaming/streamRelayServer'
 import { ensureAdbKeyboardIme, typeText } from './streaming/deviceControl'
 import { postFeedItemToFacebook } from './streaming/facebookAutoPost'
 import { autoReplyToOpenKakaoChat } from './streaming/kakaoAutoReply'
-import { getNextUnpostedItem, markPosted } from './webzineFeed'
+import { getRandomUnpostedItem, markPosted } from './webzineFeed'
 import { IPC_CHANNELS, type DeviceInfo } from '../shared/deviceTypes'
 
 loadEnvFile()
@@ -64,7 +64,7 @@ ipcMain.handle(IPC_CHANNELS.TYPE_UNICODE_TEXT, async (_event, serial: string, te
 // account. Returns null (rather than throwing) when there's nothing new, so the renderer
 // can tell "already up to date" apart from a real failure.
 ipcMain.handle(IPC_CHANNELS.FACEBOOK_AUTO_POST, async (_event, serial: string) => {
-  const item = await getNextUnpostedItem(serial)
+  const item = await getRandomUnpostedItem(serial)
   if (!item) return null
   await postFeedItemToFacebook(serial, item)
   await markPosted(serial, item.id)

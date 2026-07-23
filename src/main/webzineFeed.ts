@@ -39,13 +39,15 @@ export async function fetchFeed(): Promise<FeedItem[]> {
   return (await response.json()) as FeedItem[]
 }
 
-export async function getNextUnpostedItem(serial: string): Promise<FeedItem | null> {
+// Picks randomly rather than always "the latest unposted" - multiple devices calling this
+// around the same time (none of them having posted anything yet) would otherwise all land
+// on the exact same article, since they'd all see the same feed with nothing excluded yet.
+export async function getRandomUnpostedItem(serial: string): Promise<FeedItem | null> {
   const [items, posted] = await Promise.all([fetchFeed(), loadPostedIds()])
   const postedForDevice = new Set(posted[serial] ?? [])
-  const sorted = [...items].sort(
-    (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-  )
-  return sorted.find((item) => !postedForDevice.has(item.id)) ?? null
+  const unposted = items.filter((item) => !postedForDevice.has(item.id))
+  if (unposted.length === 0) return null
+  return unposted[Math.floor(Math.random() * unposted.length)]
 }
 
 export async function markPosted(serial: string, id: string): Promise<void> {

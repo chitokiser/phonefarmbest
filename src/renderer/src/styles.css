@@ -200,9 +200,28 @@ body {
   cursor: default;
 }
 
-.device-tile-kakao-reply-button {
+.device-tile-instagram-post-button {
   position: absolute;
   bottom: 112px;
+  right: 8px;
+  background: rgba(193, 53, 132, 0.85);
+  color: #fff;
+  border: 1px solid #4f5156;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  z-index: 10;
+  cursor: pointer;
+}
+
+.device-tile-instagram-post-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.device-tile-kakao-reply-button {
+  position: absolute;
+  bottom: 140px;
   right: 8px;
   background: rgba(59, 29, 27, 0.85);
   color: #fff;

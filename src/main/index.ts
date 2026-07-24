@@ -6,8 +6,9 @@ import { StreamRelayServer } from './streaming/streamRelayServer'
 import { ensureAdbKeyboardIme, typeText } from './streaming/deviceControl'
 import { postFeedItemToFacebook } from './streaming/facebookAutoPost'
 import { postFeedItemToBlogger } from './streaming/bloggerAutoPost'
+import { postFeedItemToInstagram } from './streaming/instagramAutoPost'
 import { autoReplyToOpenKakaoChat } from './streaming/kakaoAutoReply'
-import { getRandomUnpostedItem, markPosted } from './webzineFeed'
+import { getRandomUnpostedItem, getRandomUnpostedCardNewsItem, markPosted } from './webzineFeed'
 import { IPC_CHANNELS, type DeviceInfo } from '../shared/deviceTypes'
 
 loadEnvFile()
@@ -77,6 +78,15 @@ ipcMain.handle(IPC_CHANNELS.BLOGGER_AUTO_POST, async (_event, serial: string) =>
   if (!item) return null
   await postFeedItemToBlogger(serial, item)
   await markPosted(serial, 'blogger', item.id)
+  return { title: item.title }
+})
+
+// Unlike the other two, this never has "nothing new" to report - getRandomUnpostedCardNewsItem
+// generates a fresh card-news article on demand once this device has posted every existing one.
+ipcMain.handle(IPC_CHANNELS.INSTAGRAM_AUTO_POST, async (_event, serial: string) => {
+  const item = await getRandomUnpostedCardNewsItem(serial)
+  await postFeedItemToInstagram(serial, item)
+  await markPosted(serial, 'instagram', item.id)
   return { title: item.title }
 })
 

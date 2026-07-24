@@ -15,5 +15,6 @@ export const IPC_CHANNELS = {
   TYPE_UNICODE_TEXT: 'device:type-unicode-text',
   FACEBOOK_AUTO_POST: 'device:facebook-auto-post',
   BLOGGER_AUTO_POST: 'device:blogger-auto-post',
+  INSTAGRAM_AUTO_POST: 'device:instagram-auto-post',
   KAKAO_AUTO_REPLY: 'device:kakao-auto-reply'
 } as const

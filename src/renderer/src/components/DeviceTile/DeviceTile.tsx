@@ -18,6 +18,7 @@ export function DeviceTile({ device, selected, onClick, onDoubleClick }: DeviceT
   const [sendingUnicode, setSendingUnicode] = useState(false)
   const [facebookPostStatus, setFacebookPostStatus] = useState<'idle' | 'posting' | 'no-new-post'>('idle')
   const [bloggerPostStatus, setBloggerPostStatus] = useState<'idle' | 'posting' | 'no-new-post'>('idle')
+  const [instagramPostStatus, setInstagramPostStatus] = useState<'idle' | 'posting' | 'failed'>('idle')
   const [kakaoReplyStatus, setKakaoReplyStatus] = useState<'idle' | 'replying' | 'sent' | 'failed'>('idle')
 
   useEffect(() => {
@@ -168,6 +169,23 @@ export function DeviceTile({ device, selected, onClick, onDoubleClick }: DeviceT
     }
   }
 
+  // Posts a random not-yet-posted card-news article to this device's Instagram account (main
+  // process picks the article - generating a fresh one via the AI writer API if every
+  // existing one has already been posted from this device - and does the on-device tapping,
+  // see instagramAutoPost.ts). Separate dedup pool from Facebook/Blogger, and restricted to
+  // card-news content specifically since Instagram is image-first.
+  const postCardNewsToInstagram = async (): Promise<void> => {
+    if (instagramPostStatus === 'posting') return
+    setInstagramPostStatus('posting')
+    try {
+      await window.api.postToInstagram(device.serial)
+      setInstagramPostStatus('idle')
+    } catch (error) {
+      console.error(`[DeviceTile] ${device.serial}: failed to post to Instagram:`, error)
+      setInstagramPostStatus('failed')
+    }
+  }
+
   // Reads the last received message in whatever KakaoTalk chat room is open on this device,
   // drafts a reply with Gemini, and sends it immediately - no review step (see
   // autoReplyToOpenKakaoChat). Requires the target chat room already open on the device.
@@ -228,6 +246,23 @@ export function DeviceTile({ device, selected, onClick, onDoubleClick }: DeviceT
             : bloggerPostStatus === 'no-new-post'
               ? '새 글 없음'
               : '블로그 자동 게시'}
+        </button>
+      ) : null}
+      {device.status === 'device' ? (
+        <button
+          type="button"
+          className="device-tile-instagram-post-button"
+          disabled={instagramPostStatus === 'posting'}
+          onClick={(event) => {
+            event.stopPropagation()
+            void postCardNewsToInstagram()
+          }}
+        >
+          {instagramPostStatus === 'posting'
+            ? '게시 중...'
+            : instagramPostStatus === 'failed'
+              ? '실패'
+              : '인스타 카드뉴스'}
         </button>
       ) : null}
       {device.status === 'device' ? (

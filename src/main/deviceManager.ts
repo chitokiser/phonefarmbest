@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events'
 import { DeviceTracker } from './deviceTracker'
 import { fetchStaticInfo, fetchDynamicInfo } from './deviceInfoService'
+import { recoverStuckAdbKeyboardIme } from './streaming/deviceControl'
 import type { DeviceInfo, DeviceStatus } from '../shared/deviceTypes'
 
 const POLL_INTERVAL_MS = 3000
@@ -33,7 +34,10 @@ export class DeviceManager extends EventEmitter {
   private handleAdd(serial: string, status: DeviceStatus): void {
     this.devices.set(serial, { serial, status })
     this.emitUpdate()
-    if (status === 'device') void this.loadStaticInfo(serial)
+    if (status === 'device') {
+      void this.loadStaticInfo(serial)
+      void recoverStuckAdbKeyboardIme(serial).catch(() => undefined)
+    }
   }
 
   private handleRemove(serial: string): void {
@@ -45,7 +49,12 @@ export class DeviceManager extends EventEmitter {
     const existing = this.devices.get(serial)
     this.devices.set(serial, { ...existing, serial, status })
     this.emitUpdate()
-    if (status === 'device' && !existing?.model) void this.loadStaticInfo(serial)
+    if (status === 'device') {
+      if (!existing?.model) void this.loadStaticInfo(serial)
+      // Every reconnect, not just the first - this is exactly the "device was unplugged
+      // mid-automation" case recoverStuckAdbKeyboardIme exists for.
+      void recoverStuckAdbKeyboardIme(serial).catch(() => undefined)
+    }
   }
 
   private async loadStaticInfo(serial: string): Promise<void> {

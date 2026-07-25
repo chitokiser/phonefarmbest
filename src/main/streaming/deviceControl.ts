@@ -211,6 +211,36 @@ export async function restoreIme(serial: string, imeId: string): Promise<void> {
 }
 
 /**
+ * `ime set` writes a persistent device setting, not something tied to the ADB connection - if
+ * an automation run gets interrupted before its `finally` block runs (e.g. the device is
+ * unplugged mid-run), ADB Keyboard is left as the active IME indefinitely. It has no visible
+ * on-screen keyboard, so the phone becomes untypeable by hand until something switches back.
+ * Called whenever a device is (re)detected, to catch exactly that case automatically - there's
+ * no stored "previous IME" to restore at this point (that only ever lived in memory for the
+ * duration of the run that got interrupted), so this falls back to whatever other IME the
+ * device has enabled instead.
+ */
+export async function recoverStuckAdbKeyboardIme(serial: string): Promise<void> {
+  const current = (await shell(serial, 'settings get secure default_input_method')).trim()
+  if (current !== ADB_KEYBOARD_IME) return
+
+  const enabled = (await shell(serial, 'ime list -s'))
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+  const fallback = enabled.find((ime) => !ime.startsWith(ADB_KEYBOARD_PACKAGE))
+  if (!fallback) {
+    console.warn(`[deviceControl] [${serial}] ADB Keyboard is stuck active with no other IME enabled to fall back to`)
+    return
+  }
+
+  await shell(serial, `ime set ${fallback}`)
+  console.warn(
+    `[deviceControl] [${serial}] ADB Keyboard was left active (likely an interrupted automation run) - restored ${fallback}`
+  )
+}
+
+/**
  * scrcpy's own connection lifecycle appears to toggle the device's rotation-lock
  * setting (observed repeatedly in testing: `accelerometer_rotation` flips back to 1
  * on its own), and a mid-sequence rotation silently invalidates every coordinate a
